@@ -1,0 +1,113 @@
+Sub Rownanie_na_zamowieniach()
+
+    'AUTOR: Mateusz Pompa [DPiA]
+
+    Dim Base(2) As Integer
+    Dim TabRec As Integer, RowNum As Integer
+    Dim LastRow As Long, LastCol As Long
+    Dim i As Long
+    
+    Dim ArkuszIstnieje As Boolean
+
+    ArkuszIstnieje = False
+    
+    On Error Resume Next
+    ArkuszIstnieje = Not Sheets("Zamówienia zrównane") Is Nothing
+    On Error GoTo 0
+    
+    If ArkuszIstnieje Then
+        MsgBox "Najpierw usuń zakładkę „Zamówienia zrównane”, aby ponownie wykonać proces zrównania zamówień.", vbExclamation
+        Exit Sub
+    End If
+    
+    Application.ScreenUpdating = False
+    
+    Sheets("Zrzut z MFP").Copy After:=Sheets(Sheets.Count)
+    ActiveSheet.Name = "Zamówienia zrównane"
+    
+    ' Ustalamy na sztywno kolumny A i B
+    Base(1) = 1
+    Base(2) = 2
+    
+    ' Rozcalanie i uzupełnianie pierwszych dwóch kolumn
+    TabRec = 1
+    Do While TabRec <= 2
+        Columns(Base(TabRec)).UnMerge
+        
+        If Cells(1, Base(TabRec)) = "" Then
+            Cells(1, Base(TabRec)) = "Checked"
+            Cells(1, Base(TabRec)).HorizontalAlignment = xlCenter
+        End If
+        
+        RowNum = 1
+        Do While Cells(RowNum, Base(TabRec)) <> ""
+            RowNum = RowNum + 1
+        Loop
+        
+        If RowNum <> 1 And RowNum <= 7 Then
+            Cells(RowNum, Base(TabRec)).FormulaR1C1 = "=R[-1]C"
+            Cells(RowNum, Base(TabRec)).Copy
+            On Error Resume Next
+                Columns(Base(TabRec)).SpecialCells(xlCellTypeBlanks).PasteSpecial xlPasteFormulas
+                Columns(Base(TabRec)).Copy
+                Columns(Base(TabRec)).PasteSpecial Paste:=xlPasteValues
+            On Error GoTo 0
+        End If
+        
+        TabRec = TabRec + 1
+    Loop
+    
+    ' Usuwanie wierszy gdzie A ? B
+    LastRow = Cells(Rows.Count, 1).End(xlUp).Row
+    For i = LastRow To 3 Step -1
+        If Cells(i, 1).Value <> Cells(i, 2).Value Then Rows(i).Delete
+    Next i
+    
+    ' Wstawienie formuły do D1
+    Range("D1").FormulaLocal = _
+    "=JEŻELI(CZY.LICZBA(X.DOPASUJ(D2;{""26W49 01.03"";""26W50 01.10"";""26W51 01.17"";""26W52 01.24"";""27W1 01.31"";""27W2 02.07"";""27W3 02.14"";""27W4 02.21"";""27W5 02.28"";""27W6 03.07"";""27W7 03.14"";""27W8 03.21"";""27W9 03.28"";""27W10 04.04"";""27W11 04.11"";""27W12 04.18"";""27W13 04.25"";""27W14 05.02"";""27W15 05.09"";""27W16 05.16"";""27W17 05.23"";""27W18 05.30"";""27W19 06.06"";""27W20 06.13"";""27W21 06.20"";""27W22 06.27""}));" & _
+    "X.WYSZUKAJ(D2;'Fin Rcpt do wklejenia 27P1'!$5:$5;'Fin Rcpt do wklejenia 27P1'!$2:$2);" & _
+    "X.WYSZUKAJ(D2;'Fin Rcpt do wklejenia 26P2'!$5:$5;'Fin Rcpt do wklejenia 26P2'!$2:$2))"
+    
+    ' Znajdź ostatnią kolumnę w wierszu 2
+    LastCol = Cells(2, Columns.Count).End(xlToLeft).Column
+    
+    ' Skopiuj formułę z D1 w prawo do ostatniej kolumny
+    Range(Cells(1, 4), Cells(1, LastCol)).Formula = Cells(1, 4).Formula
+    
+    ' Wyznacz ostatni wiersz po usuwaniu wierszy
+    LastRow = Cells(Rows.Count, 1).End(xlUp).Row
+
+    ' Wstaw formułę do D3
+    Range("D3").FormulaLocal = _
+    "=JEŻELI(CZY.LICZBA(X.DOPASUJ(D$2;{""26W49 01.03"";""26W50 01.10"";""26W51 01.17"";""26W52 01.24"";""27W1 01.31"";""27W2 02.07"";""27W3 02.14"";""27W4 02.21"";""27W5 02.28"";""27W6 03.07"";""27W7 03.14"";""27W8 03.21"";""27W9 03.28"";""27W10 04.04"";""27W11 04.11"";""27W12 04.18"";""27W13 04.25"";""27W14 05.02"";""27W15 05.09"";""27W16 05.16"";""27W17 05.23"";""27W18 05.30"";""27W19 06.06"";""27W20 06.13"";""27W21 06.20"";""27W22 06.27""}));" & _
+    "WYSZUKAJ.PIONOWO($C3;'Fin Rcpt do wklejenia 27P1'!$A:$AA;D$1;0);" & _
+    "WYSZUKAJ.PIONOWO($C3;'Fin Rcpt do wklejenia 26P2'!$A:$AA;D$1;0))"
+    
+    ' Jednym strzałem: w prawo i w dół
+    Range(Cells(3, 4), Cells(LastRow, LastCol)).Formula = Range("D3").Formula
+    
+    ' Ustaw format liczbowy
+    Range(Cells(3, 4), Cells(LastRow, LastCol)).NumberFormat = "0.00000000"
+    
+    '
+    ' Zamrożenie okienka na komórce D3
+    Range("D3").Select
+    ActiveWindow.FreezePanes = False
+    ActiveWindow.FreezePanes = True
+    
+    ' Włączenie filtra na wierszu 2
+    Rows(2).AutoFilter
+    '
+
+
+    Application.CutCopyMode = False
+    Range("A1").Select
+    Application.ScreenUpdating = True
+    
+    MsgBox "Zamówienia zostały zrównane", vbInformation
+
+End Sub
+
+
+
